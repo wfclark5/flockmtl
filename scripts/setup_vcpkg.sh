@@ -31,3 +31,17 @@ export VCPKG_TOOLCHAIN_PATH=`pwd`/vcpkg/scripts/buildsystems/vcpkg.cmake
 echo "VCPKG_TOOLCHAIN_PATH is set to $VCPKG_TOOLCHAIN_PATH"
 
 echo "vcpkg setup complete."
+
+
+cmake -B build/release \
+  -S "/home/situ/tests/flockmtl/duckdb" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DDUCKDB_EXTENSION_CONFIGS="$(pwd)/extension_config.cmake" \
+  -DCMAKE_TOOLCHAIN_FILE="$(pwd)/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+  -DVCPKG_MANIFEST_DIR="$(pwd)" \
+  -DEXTENSION_STATIC_BUILD=1 \
+  -DVCPKG_FEATURE_FLAGS=manifest \
+  -DVCPKG_MANIFEST_MODE=ON 
+
+
+cmake -G "Ninja" -DFORCE_COLORED_OUTPUT=1 -DEXTENSION_STATIC_BUILD=1 -DDUCKDB_EXTENSION_CONFIGS='/home/situ/tests/flockmtl/extension_config.cmake'   -DOSX_BUILD_ARCH=   -DVCPKG_MANIFEST_DIR='/home/situ/tests/flockmtl/' -DVCPKG_BUILD=1 -DCMAKE_TOOLCHAIN_FILE='/home/situ/tests/flockmtl/vcpkg/scripts/buildsystems/vcpkg.cmake' -DDUCKDB_EXPLICIT_PLATFORM='' -DCUSTOM_LINKER= -DOVERRIDE_GIT_DESCRIBE=""  -DCMAKE_BUILD_TYPE=Debug -S "./duckdb/" -B build/debug

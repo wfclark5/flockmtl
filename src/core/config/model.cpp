@@ -32,6 +32,7 @@ void Config::SetupDefaultModelsConfig(duckdb::Connection& con, std::string& sche
             " ('default', 'gpt-4o-mini', 'openai', '{{\"context_window\":128000,\"max_output_tokens\":16384}}'),"
             " ('gpt-4o-mini', 'gpt-4o-mini', 'openai', '{{\"context_window\":128000,\"max_output_tokens\":16384}}'),"
             " ('gpt-4o', 'gpt-4o', 'openai', '{{\"context_window\":128000,\"max_output_tokens\":16384}}'),"
+            " ('o4-mini', 'o4-mini', 'openai', '{{\"context_window\":200000,\"max_output_tokens\":10000}}'),"
             " ('text-embedding-3-large', 'text-embedding-3-large', 'openai', "
             " '{{\"context_window\":{},\"max_output_tokens\":{}}}'),"
             " ('text-embedding-3-small', 'text-embedding-3-small', 'openai', "
