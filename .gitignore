@@ -17,3 +17,5 @@ tags/
 notebooks/data
 notebooks/*.ipynb
 /research_papers/
+ccache_dir/
+bin/
