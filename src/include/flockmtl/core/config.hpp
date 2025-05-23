@@ -25,8 +25,8 @@ public:
     static std::string get_default_models_table_name();
     static std::string get_user_defined_models_table_name();
     static std::string get_prompts_table_name();
-    constexpr static int32_t default_context_window = 128000;
-    constexpr static int32_t default_max_output_tokens = 4096;
+    constexpr static int32_t default_context_window = 200000;
+    constexpr static int32_t default_max_output_tokens = 100000;
 
 private:
     static void SetupGlobalStorageLocation();

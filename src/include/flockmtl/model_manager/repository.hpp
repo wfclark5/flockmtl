@@ -2,6 +2,7 @@
 
 #include <string>
 #include <algorithm>
+#include <unordered_map>
 
 namespace flockmtl {
 
@@ -13,6 +14,7 @@ struct ModelDetails {
     int32_t max_output_tokens;
     float temperature;
     std::unordered_map<std::string, std::string> secret;
+    int batch_size;
 };
 
 const std::string OLLAMA = "ollama";

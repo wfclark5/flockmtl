@@ -12,7 +12,7 @@ nlohmann::json OpenAIProvider::CallComplete(const std::string& prompt, bool json
     // Create a JSON request payload with the provided parameters
     nlohmann::json request_payload = {{"model", model_details_.model},
                                       {"messages", {{{"role", "user"}, {"content", prompt}}}},
-                                      {"max_tokens", model_details_.max_output_tokens},
+                                      {"max_completion_tokens", model_details_.max_output_tokens},
                                       {"temperature", model_details_.temperature}};
 
     // Conditionally add "response_format" if json_response is true
@@ -76,6 +76,12 @@ nlohmann::json OpenAIProvider::CallEmbedding(const std::vector<std::string>& inp
     if (completion["choices"][0]["finish_reason"] == "length") {
         // Handle the error when the context window is too long
         throw ExceededMaxOutputTokensError();
+    }
+
+    // Check if the OpenAI safety system refused the request
+    if (completion["choices"][0]["message"]["refusal"] != nullptr) {
+        return nlohmann::json {{"error", "refusal"},
+                               {"reason", completion["choices"][0]["message"]["refusal"].get<std::string>()}};
     }
 
     auto embeddings = nlohmann::json::array();

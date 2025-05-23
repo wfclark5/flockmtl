@@ -17,7 +17,7 @@ add_subdirectory(src)
 
 # Find dependencies
 find_package(CURL REQUIRED)
-find_package(nlohmann_json CONFIG REQUIRED)
+find_package(nlohmann_json 3.11.3 CONFIG REQUIRED)
 
 # Build the DuckDB static and loadable extensions
 build_static_extension(${TARGET_NAME} ${EXTENSION_SOURCES})
@@ -56,3 +56,13 @@ install(
   EXPORT "${DUCKDB_EXPORT_SET}"
   LIBRARY DESTINATION "${INSTALL_LIB_DIR}"
   ARCHIVE DESTINATION "${INSTALL_LIB_DIR}")
+
+if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
+  message(STATUS "Enabling code coverage for Debug build")
+  add_compile_options(-fprofile-instr-generate -fcoverage-mapping)
+  add_link_options(-fprofile-instr-generate -fcoverage-mapping)
+endif()
+
+# Add the test directory
+enable_testing()
+add_subdirectory(test)

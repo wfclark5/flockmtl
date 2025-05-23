@@ -2,72 +2,101 @@
 
 namespace flockmtl {
 
+/*------------------------------------------------------------------*/
+/*  COMPLETE (single prompt)                                        */
+/*------------------------------------------------------------------*/
 nlohmann::json ScalarFunctionBase::Complete(const nlohmann::json& tuples, const std::string& user_prompt,
                                             ScalarFunctionType function_type, Model& model) {
-    nlohmann::json data;
     const auto prompt = PromptManager::Render(user_prompt, tuples, function_type);
     auto response = model.CallComplete(prompt);
+    std::cout << "Response size: " << response.dump() << std::endl;
     return response["tuples"];
-};
+}
 
+/*------------------------------------------------------------------*/
+/*  BATCH + COMPLETE                                                */
+/*------------------------------------------------------------------*/
 nlohmann::json ScalarFunctionBase::BatchAndComplete(const std::vector<nlohmann::json>& tuples,
                                                     const std::string& user_prompt,
                                                     const ScalarFunctionType function_type, Model& model) {
-    const auto llm_template = PromptManager::GetTemplate(function_type);
-
-    int num_tokens_meta_and_user_prompt = 0;
-    num_tokens_meta_and_user_prompt += Tiktoken::GetNumTokens(user_prompt);
-    num_tokens_meta_and_user_prompt += Tiktoken::GetNumTokens(llm_template);
-    const int available_tokens = model.GetModelDetails().context_window - num_tokens_meta_and_user_prompt;
-
-    auto responses = nlohmann::json::array();
+    /* ---------- pre-compute context-window room ----------------- */
+    auto tmpl = PromptManager::GetTemplate(function_type);
+    auto meta_tokens = Tiktoken::GetNumTokens(user_prompt) + Tiktoken::GetNumTokens(tmpl);
+    auto available_tokens = model.GetModelDetails().context_window - meta_tokens;
 
     if (available_tokens < 0) {
-        throw std::runtime_error("The total number of tokens in the prompt exceeds the model's maximum token limit");
-    } else {
+        throw std::runtime_error("Prompt exceeds the model context window");
+    }
 
-        auto accumulated_tuples_tokens = 0u;
-        auto batch_tuples = nlohmann::json::array();
-        auto batch_size = tuples.size();
-        int start_index = 0;
+    nlohmann::json responses = nlohmann::json::array();
+    /* ---------- batching loop ----------------------------------- */
+    std::size_t start_index = 0;
+    std::size_t batch_size = tuples.size(); // initial guess
+    nlohmann::json batch_tuples = nlohmann::json::array();
 
-        do {
-            accumulated_tuples_tokens +=
-                Tiktoken::GetNumTokens(PromptManager::ConstructMarkdownHeader(tuples[start_index]));
-            while (accumulated_tuples_tokens < available_tokens && start_index < tuples.size() &&
-                   batch_tuples.size() < batch_size) {
-                auto num_tokens =
-                    Tiktoken::GetNumTokens(PromptManager::ConstructMarkdownSingleTuple(tuples[start_index]));
-                if (accumulated_tuples_tokens + num_tokens > available_tokens) {
-                    break;
-                }
-                batch_tuples.push_back(tuples[start_index]);
-                accumulated_tuples_tokens += num_tokens;
-                start_index++;
+    while (start_index < tuples.size()) {
+        /* clear & rebuild batch */
+        std::size_t accumulated = 0;
+        batch_tuples.clear();
+
+        while (start_index < tuples.size()) {
+            const auto& candidate = tuples[start_index];
+            auto cand_tokens = Tiktoken::GetNumTokens(PromptManager::ConstructMarkdownSingleTuple(candidate));
+
+            /* -----------------------------------------------------
+             * If **one tuple alone** would overflow the context
+             * window, we cannot send it to the model as-is.
+             * Instead, record a NULL for that row and move on.
+             * --------------------------------------------------- */
+            if (cand_tokens > static_cast<unsigned>(available_tokens)) {
+                responses.push_back(nullptr);
+                ++start_index;
+                continue; // try next tuple
             }
 
-            nlohmann::json response;
-            try {
-                response = Complete(batch_tuples, user_prompt, function_type, model);
-            } catch (const ExceededMaxOutputTokensError&) {
-                batch_tuples.clear();
-                const auto new_batch_size = static_cast<int>(batch_size * 0.1);
-                batch_size = batch_size == 1 ? new_batch_size == 0 : new_batch_size;
-                accumulated_tuples_tokens = 0;
-                start_index = 0;
-                continue;
-            }
-            auto output_tokens_per_tuple = Tiktoken::GetNumTokens(response.dump()) / batch_tuples.size();
-
-            batch_size = model.GetModelDetails().max_output_tokens / output_tokens_per_tuple;
-            batch_tuples.clear();
-            accumulated_tuples_tokens = 0;
-
-            for (const auto& tuple : response) {
-                responses.push_back(tuple);
+            /* Would adding this tuple overflow the current batch? */
+            if (accumulated + cand_tokens > static_cast<unsigned>(available_tokens) ||
+                batch_tuples.size() >= batch_size) {
+                break; // finish this batch
             }
 
-        } while (start_index < tuples.size());
+            batch_tuples.push_back(candidate);
+            accumulated += cand_tokens;
+            ++start_index;
+        }
+
+        /* no tuples fit -> continue (all were oversized & nulled) */
+        if (batch_tuples.empty()) {
+            continue;
+        }
+
+        /* -------- call the model for this batch ----------------- */
+        nlohmann::json batch_response;
+        try {
+            batch_response = Complete(batch_tuples, user_prompt, function_type, model);
+            std::cout << "Batch response size: " << batch_response.size() << std::endl;
+        } catch (const ExceededMaxOutputTokensError&) {
+            /* Back off to smaller batches and retry --------------- */
+            batch_size = std::max<std::size_t>(1, batch_size / 2);
+            continue; // rebuild batch
+        }
+
+        /* -------- pad / trim so cardinalities match ------------- */
+        if (batch_response.size() < batch_tuples.size()) {
+            batch_response.insert(batch_response.end(), batch_tuples.size() - batch_response.size(), nullptr);
+        } else if (batch_response.size() > batch_tuples.size()) {
+            batch_response.erase(batch_response.begin() + batch_tuples.size(), batch_response.end());
+        }
+
+        /* -------- accumulate results --------------------------- */
+        for (auto& row : batch_response)
+            responses.push_back(row);
+
+        /* -------- recompute next-batch hint --------------------- */
+        auto tokens_per_tuple =
+            std::max<unsigned>(1u, Tiktoken::GetNumTokens(batch_response.dump()) / batch_tuples.size());
+
+        batch_size = std::max<std::size_t>(1, model.GetModelDetails().max_output_tokens / tokens_per_tuple);
     }
 
     return responses;

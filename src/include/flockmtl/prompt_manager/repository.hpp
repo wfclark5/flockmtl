@@ -39,11 +39,15 @@ public:
         "The system should interpret database tuples and provide a response to the user's prompt for each tuple in a "
         "JSON format that contains the necessary columns for the answer.\n\nThe tool should respond in JSON format as "
         "follows:\n\n```json\n{\t\"tuples\": [\n\t\t{<response 1>},\n\t\t{<response 2>},\n\t\t...\n\t\t{<response "
-        "n>}\n\t]\n}\n```";
+        "n>}\n\t]\n}\n```. \n\n Rules: The system should not ask for clarifying questions, just return the requested "
+        "JSON format";
     static constexpr auto COMPLETE =
-        "The system should interpret database tuples and provide a response to the user's prompt for each tuple in "
-        "plain text.\n\tThe tool should respond in JSON format as follows:\n\n```json\n{\"tuples\": [\"<response 1>\", "
-        "\"<response 2>\", ... , \"<response n>\"]}";
+        "The system should \n 1) for each database tuple interpret it individually \n 2) for each tuple provide a "
+        "response to the user's prompt for each tuple in "
+        "plain text.\n\t 3) The tool should respond in JSON format as follows:\n\n```json\n{\"tuples\": [\"<response "
+        "1>\", \"<response 2>\", ... , \"<response n>\"]}\n``` Response Rules:\n Do not ask for clarifying questions "
+        "just return the JSON response.\n Do not add any additional text or explanation beyond the JSON response.\n Do "
+        "not include any markdown formatting in the response.\n";
     static constexpr auto FILTER =
         "The system should interpret database tuples and provide a response to the user's prompt for each tuple in a "
         "BOOL format that would be true/false.\n\tThe tool should respond in JSON format as "

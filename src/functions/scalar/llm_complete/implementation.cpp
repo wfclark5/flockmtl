@@ -41,6 +41,8 @@ std::vector<std::string> LlmComplete::Operation(duckdb::DataChunk& args) {
         auto responses = BatchAndComplete(tuples, prompt_details.prompt, ScalarFunctionType::COMPLETE, model);
 
         results.reserve(responses.size());
+        // print responses size
+        std::cout << "Response size: " << responses.size() << std::endl;
         for (const auto& response : responses) {
             results.push_back(response.dump());
         }
@@ -49,6 +51,8 @@ std::vector<std::string> LlmComplete::Operation(duckdb::DataChunk& args) {
 }
 
 void LlmComplete::Execute(duckdb::DataChunk& args, duckdb::ExpressionState& state, duckdb::Vector& result) {
+
+    // wait for 10 seconds
 
     auto results = LlmComplete::Operation(args);
 
